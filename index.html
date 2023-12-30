@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Waveform Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #282c34;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .file-input {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .audio-control {
+            margin-bottom: 20px;
+        }
+
+        .audio-canvas {
+            width: 600px;
+            height: 600px;
+            display: block;
+            background-color: #f0f0f0;
+            border-radius: 300px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <input type="file" id="fileInput" accept="audio/*" class="file-input">
+        <audio id="audio" controls class="audio-control"></audio>
+        <canvas id="canvas" class="audio-canvas"></canvas>
+    </div>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const audio = document.getElementById('audio');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        });
+
+        function draw() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = height / 4; // Adjusted for aesthetics
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, width, height);
+
+            const barWidth = (2 * Math.PI) / bufferLength;
+            const barHeightMultiplier = 10; // Adjust for amplitude scale
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = dataArray[i] * barHeightMultiplier;
+                const angle = i * barWidth;
+
+                const x1 = centerX + radius * Math.cos(angle);
+                const y1 = centerY + radius * Math.sin(angle);
+                const x2 = centerX + (radius + barHeight) * Math.cos(angle);
+                const y2 = centerY + (radius + barHeight) * Math.sin(angle);
+
+                const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                gradient.addColorStop(0, `hsl(${angle * 180 / Math.PI}, 100%, 50%)`);
+                gradient.addColorStop(1, `hsl(${(angle + Math.PI / 2) * 180 / Math.PI}, 100%, 50%)`);
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3; // Thickness of the waveform bars
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
